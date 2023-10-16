@@ -1,7 +1,7 @@
 package org.example;
 
-import entity.BillingCommonFormat;
-import entity.BillingDataSecond;
+import entity.DestinationCommonFormat;
+import entity.DestinationDataEntity;
 import mapper.SqlMapper;
 
 import java.lang.reflect.Field;
@@ -12,42 +12,40 @@ import java.util.Map;
 
 /**
  * Hello world!
- *
  */
-public class App 
-{
+public class App {
 
     private final SqlMapper sqlMapper;
 
     public App(SqlMapper sqlMapper) {
         this.sqlMapper = sqlMapper;
     }
-    public static void main( String[] args )
-    {
-        //copyFieldsIntoBillingDataSecond();
-        System.out.println( "success" );
+
+    public static void main(String[] args) {
+        //copyFieldsIntoDestinationData();
+        System.out.println("success");
     }
-    private void copyFieldsIntoBillingDataSecond(Object source, BillingDataSecond destinationSecond, String tableName,
-                                                 Integer fileIdentifierId) throws IllegalAccessException {
+
+    private List<DestinationDataEntity>  copyFieldsIntoDestinationData(Object source, DestinationDataEntity destination, String tableName, Integer fileIdentifierId) throws IllegalAccessException {
         Class<?> sourceClass = source.getClass();
         Field[] sourceFields = sourceClass.getDeclaredFields();
+
+        // new return or use paramater
+        List<DestinationDataEntity> newDataList = new ArrayList<>();
 
         for (Field sourceField : sourceFields) {
             sourceField.setAccessible(true);
 
-
-            List<String> fieldNamesBillingCommonFormat = getFieldNames(BillingCommonFormat.class);
-            List<String> fieldNamesBillingDataSecond = getFieldNames(BillingDataSecond.class);
+            List<String> fieldNamesDestinationCommonFormat = getFieldNames(DestinationCommonFormat.class);
+            List<String> fieldNamesDestinationData = getFieldNames(DestinationDataEntity.class);
 
             List<String> fieldValues = new ArrayList<>();
 
             Map<String, String> fieldNameToValueMap = new HashMap<>();
 
+            for (String fieldName : fieldNamesDestinationCommonFormat) {
 
-            for (String fieldName : fieldNamesBillingCommonFormat) {
-
-                if (fieldNamesBillingDataSecond.contains(fieldName) && (!fieldName.equals("createUserId"))
-                        && (!fieldName.equals("createdDatetime"))) {
+                if (fieldNamesDestinationData.contains(fieldName) && (!fieldName.equals("createUserId")) && (!fieldName.equals("createdDatetime"))) {
 
                     System.out.println("Processing field: " + fieldName);
                     String fieldValue = getFieldValue(source, fieldName);
@@ -58,9 +56,6 @@ public class App
                 }
             }
 
-            // new return or use paramater
-            List<BillingDataSecond> newDataSecondList = new ArrayList<>();
-
             for (Map.Entry<String, String> entry : fieldNameToValueMap.entrySet()) {
 
                 String fieldName = entry.getKey();
@@ -68,22 +63,19 @@ public class App
 
                 // AS modified_column ***
                 if (replacementValue != null) {
-                    String sqlQuery = "SELECT " + replacementValue + " AS modified_column FROM " + tableName
-                            + " where id = " + fileIdentifierId;
+                    String sqlQuery = "SELECT " + replacementValue + " AS modified_column FROM " + tableName + " where id = " + fileIdentifierId;
 
                     Map<String, String> row = sqlMapper.selectOne(sqlQuery);
-
-
                     for (String key : row.keySet()) {
                         System.out.println("Key: " + key);
                     }
                     String modifiedColumnValue = (String) row.get("modified_column");
 
-                    // set value into second list by refliction
-                    Class<?> dataSecondClass = destinationSecond.getClass();
+                    // set value into  list by refliction
+                    Class<?> dataClass = destination.getClass();
 
                     try {
-                        Field field = dataSecondClass.getDeclaredField(fieldName);
+                        Field field = dataClass.getDeclaredField(fieldName);
                         field.setAccessible(true);
 
                         Class<?> fieldType = field.getType();
@@ -91,29 +83,27 @@ public class App
                         // TODO !!!!! Other types
                         if (fieldType == Integer.class || fieldType == int.class) {
                             int intValue = Integer.parseInt(modifiedColumnValue);
-                            field.set(destinationSecond, intValue);
+                            field.set(destination, intValue);
                         } else if (fieldType == Byte.class) {
                             byte byteValue = Byte.parseByte(modifiedColumnValue);
-                            field.set(destinationSecond, byteValue);
+                            field.set(destination, byteValue);
                         } else if (fieldType == String.class) {
-                            field.set(destinationSecond, modifiedColumnValue);
+                            field.set(destination, modifiedColumnValue);
                         } else {
-                            // TODO others type
+
                         }
                     } catch (NoSuchFieldException | IllegalAccessException | NumberFormatException e) {
                         e.printStackTrace();
                     }
+                    newDataList.add(destination);
 
-                    newDataSecondList.add(destinationSecond);
 
-
-                } else {
-                    // TODO when not map in second list
                 }
 
             }
 
         }
+        return newDataList;
     }
 
 
